@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock AI | Real-Time Stock Forecasting</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+
+        <!-- Header -->
+        <header class="app-header">
+            <div class="brand">
+                <div class="brand-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
+                        <polyline points="16 7 22 7 22 13"></polyline>
+                    </svg>
+                </div>
+                <div class="brand-text">
+                    <span class="brand-title">STOCK <span class="highlight">AI</span></span>
+                    <span class="brand-subtitle">Real-Time Intelligent Stock Forecasting</span>
+                </div>
+            </div>
+            <div class="header-controls">
+                <div class="live-refresh-container">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="auto-refresh-toggle">
+                        <span class="slider"></span>
+                    </label>
+                    <span class="refresh-label">Live (30s)</span>
+                </div>
+                <div class="status-indicator" id="system-status">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Connected</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Grid -->
+        <main class="dashboard-grid">
+
+            <!-- Left: Controls -->
+            <section class="control-panel">
+
+                <!-- Search -->
+                <div class="card search-card">
+                    <label class="card-label" for="stock-search-input">Search Real Stock</label>
+                    <div class="search-input-wrapper">
+                        <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        <input type="text" id="stock-search-input" placeholder="Search ticker or company…" autocomplete="off">
+                        <button id="search-clear-btn" class="search-clear-btn" style="display:none;">&times;</button>
+                    </div>
+                    <div id="search-dropdown" class="search-dropdown" style="display:none;"></div>
+                    <div class="quick-chips">
+                        <span class="chips-label">Popular:</span>
+                        <div class="chips-list">
+                            <button class="stock-chip active" data-symbol="AAPL">AAPL</button>
+                            <button class="stock-chip" data-symbol="NVDA">NVDA</button>
+                            <button class="stock-chip" data-symbol="MSFT">MSFT</button>
+                            <button class="stock-chip" data-symbol="TSLA">TSLA</button>
+                            <button class="stock-chip" data-symbol="GOOGL">GOOGL</button>
+                            <button class="stock-chip" data-symbol="RELIANCE.NS">RELIANCE (IN)</button>
+                            <button class="stock-chip" data-symbol="TCS.NS">TCS (IN)</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Quote Card -->
+                <div class="card quote-card">
+                    <div class="quote-header">
+                        <div>
+                            <h2 class="stock-symbol" id="quote-symbol">AAPL</h2>
+                            <p class="stock-name" id="quote-name">Apple Inc.</p>
+                        </div>
+                        <div class="market-status-pill" id="market-status-pill">
+                            <span class="pulse-dot"></span>
+                            <span id="market-status-text">Checking…</span>
+                        </div>
+                    </div>
+                    <div class="quote-price-row">
+                        <div class="main-price" id="quote-price">$0.00</div>
+                        <div class="price-change-wrapper">
+                            <span class="price-change" id="quote-change">+0.00</span>
+                            <span class="price-change-percent" id="quote-change-pct">(+0.00%)</span>
+                        </div>
+                    </div>
+                    <div class="quote-footer">
+                        <div class="quote-meta">
+                            <span class="meta-label">Data:</span>
+                            <span class="meta-value" id="quote-data-label">Latest available price</span>
+                        </div>
+                        <div class="quote-meta">
+                            <span class="meta-label">Updated:</span>
+                            <span class="meta-value" id="quote-last-updated">--:--:--</span>
+                        </div>
+                        <button class="refresh-btn" id="refresh-quote-btn">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                            </svg>
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Period & Horizon -->
+                <div class="card horizon-card">
+                    <label class="card-label">Historical Lookback</label>
+                    <div class="horizon-toggle-group" id="period-toggle">
+                        <button class="horizon-btn" data-period="1M">
+                            <span class="horizon-title">1 Month</span>
+                            <span class="horizon-desc">~21 trading days</span>
+                        </button>
+                        <button class="horizon-btn active" data-period="5M">
+                            <span class="horizon-title">5 Months</span>
+                            <span class="horizon-desc">~105 trading days</span>
+                        </button>
+                    </div>
+
+                    <label class="card-label" style="margin-top:1rem;">Forecast Horizon</label>
+                    <div class="horizon-toggle-group" id="step-toggle">
+                        <button class="horizon-btn active" data-steps="1">
+                            <span class="horizon-title">Next Day</span>
+                            <span class="horizon-desc">Next session</span>
+                        </button>
+                        <button class="horizon-btn" data-steps="5">
+                            <span class="horizon-title">5 Days</span>
+                            <span class="horizon-desc">1-week trajectory</span>
+                        </button>
+                    </div>
+
+                    <div class="data-period-summary" id="period-summary">
+                        Using: <strong>5 months</strong> of historical trading data
+                    </div>
+
+                    <button class="predict-btn" id="predict-btn">
+                        <span class="btn-text">Analyze & Forecast</span>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                            <polyline points="12 5 19 12 12 19"></polyline>
+                        </svg>
+                    </button>
+                </div>
+
+            </section>
+
+            <!-- Right: Results -->
+            <section class="results-panel">
+
+                <!-- AI Thinking Overlay -->
+                <div class="thinking-overlay" id="thinking-overlay" style="display:none;">
+                    <div class="thinking-brain">
+                        <div class="brain-pulse"></div>
+                        <svg class="brain-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9.5 2a2.5 2.5 0 0 1 5 0v.5a2.5 2.5 0 0 1-2.5 2.5h-.5"></path>
+                            <path d="M17 2.5a2.5 2.5 0 0 1 3 3.5c.5.8.5 1.8 0 2.5.7.7 1 1.6.8 2.5a2.5 2.5 0 0 1-2.8 2h-.5"></path>
+                            <path d="M7 2.5a2.5 2.5 0 0 0-3 3.5c-.5.8-.5 1.8 0 2.5-.7.7-1 1.6-.8 2.5a2.5 2.5 0 0 0 2.8 2H7"></path>
+                            <path d="M12 5v6"></path>
+                            <path d="M9 11h6"></path>
+                            <path d="M9 14s0 5 3 5 3-5 3-5"></path>
+                        </svg>
+                    </div>
+                    <div class="thinking-content">
+                        <h3 class="thinking-title">AI is Thinking…</h3>
+                        <div class="thought-bubble-area" id="thought-bubble-area">
+                            <div class="thought-bubble active" id="current-thought">
+                                Gathering recent market data…
+                            </div>
+                        </div>
+                        <div class="thinking-progress-bar">
+                            <div class="thinking-fill" id="thinking-fill"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Forecast Result Highlights -->
+                <div class="forecast-highlights">
+                    <div class="card highlight-card main-forecast">
+                        <span class="highlight-label">AI FORECAST</span>
+                        <div class="highlight-main-val" id="forecast-price">—</div>
+                        <div class="highlight-sub" id="forecast-return">—</div>
+                        <div class="highlight-horizon" id="forecast-horizon">Next Trading Day</div>
+                    </div>
+                    <div class="card highlight-card">
+                        <span class="highlight-label">CONFIDENCE</span>
+                        <div class="agreement-badge" id="agreement-badge">—</div>
+                        <div class="agreement-desc" id="agreement-desc">Run forecast to analyze</div>
+                    </div>
+                    <div class="card highlight-card">
+                        <span class="highlight-label">PROJECTED RANGE</span>
+                        <div class="range-val" id="forecast-range">— — —</div>
+                        <div class="range-sub">Based on volatility analysis</div>
+                    </div>
+                </div>
+
+                <!-- Summary + Export -->
+                <div class="forecast-action-bar">
+                    <div class="forecast-summary-bar" id="forecast-summary-bar">
+                        <span class="summary-icon">💡</span>
+                        <span class="summary-text" id="forecast-summary-text">
+                            Select a stock and click <strong>Analyze &amp; Forecast</strong> to begin.
+                        </span>
+                    </div>
+                    <button class="export-btn" id="export-csv-btn">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Export
+                    </button>
+                </div>
+
+                <!-- Chart -->
+                <div class="card chart-card">
+                    <div class="chart-header">
+                        <div>
+                            <h3 class="chart-title">Price History & AI Forecast Timeline</h3>
+                            <p class="chart-subtitle">Solid: Real market data &nbsp;|&nbsp; Dashed: AI forecast &nbsp;|&nbsp; Shaded: Uncertainty range</p>
+                        </div>
+                        <div class="chart-legend-custom">
+                            <span class="legend-item"><span class="legend-color hist"></span> Historical</span>
+                            <span class="legend-item"><span class="legend-color fc"></span> Forecast</span>
+                            <span class="legend-item"><span class="legend-color range"></span> Range</span>
+                        </div>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="forecastChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Recent 5-Day Replay -->
+                <div class="card table-card">
+                    <h4 class="table-card-title">Recent 5-Day Market Replay</h4>
+                    <p class="card-hint" style="margin-bottom:0.75rem;">Actual session-by-session outcomes from the latest trading data:</p>
+                    <div class="table-responsive">
+                        <table class="data-table" id="backtest-table">
+                            <thead>
+                                <tr>
+                                    <th>Session</th>
+                                    <th>Previous Close</th>
+                                    <th>Actual Close</th>
+                                    <th>Change</th>
+                                    <th>Outcome</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="5" class="text-muted">Run forecast to view recent sessions</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Disclaimer -->
+                <footer class="disclaimer-footer">
+                    <p><strong>Disclaimer:</strong> AI forecasts are generated from recent historical market data using multiple analytical models. Stock markets are inherently uncertain. Results are for educational and research purposes only and do <strong>NOT</strong> constitute financial advice or investment recommendations.</p>
+                </footer>
+
+            </section>
+        </main>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
