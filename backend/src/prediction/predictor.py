@@ -1,4 +1,5 @@
 import datetime as dt
+import concurrent.futures
 from dataclasses import dataclass
 from typing import Dict, List, Any, Optional
 import numpy as np
@@ -44,22 +45,29 @@ class StockPredictor:
             y_tab=prep_data.y_tabular
         )
 
-        # 5. Train 3 models on full recent historical data
-        # Model 1: LSTM
-        lstm = LSTMForecaster(input_dim=prep_data.X_sequences.shape[2], epochs=35)
-        lstm.train(prep_data.X_sequences, prep_data.y_sequences)
-        lstm_return = float(lstm.predict(prep_data.latest_sequence_input)[0])
+        # Model 1: LSTM  &  Model 3: Transformer — train in parallel
+        lstm = LSTMForecaster(input_dim=prep_data.X_sequences.shape[2], epochs=20)
+        transformer = TransformerForecaster(input_dim=prep_data.X_sequences.shape[2], epochs=20)
 
-        # Model 2: XGBoost
+        def train_lstm():
+            lstm.train(prep_data.X_sequences, prep_data.y_sequences)
+            return float(lstm.predict(prep_data.latest_sequence_input)[0])
+
+        def train_transformer():
+            transformer.train(prep_data.X_sequences, prep_data.y_sequences)
+            return float(transformer.predict(prep_data.latest_sequence_input)[0])
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            f_lstm        = executor.submit(train_lstm)
+            f_transformer = executor.submit(train_transformer)
+            lstm_return  = f_lstm.result()
+            trans_return = f_transformer.result()
+
+        # Model 2: XGBoost (fast — runs on main thread)
         xgb = XGBoostForecaster(n_estimators=50)
         xgb.train(prep_data.X_tabular, prep_data.y_tabular)
         xgb_return = float(xgb.predict(prep_data.latest_tabular_input)[0])
         feature_importances = xgb.get_feature_importances(prep_data.feature_names)
-
-        # Model 3: Transformer
-        transformer = TransformerForecaster(input_dim=prep_data.X_sequences.shape[2], epochs=35)
-        transformer.train(prep_data.X_sequences, prep_data.y_sequences)
-        trans_return = float(transformer.predict(prep_data.latest_sequence_input)[0])
 
         # 6. Historical Volatility from returns
         hist_vol = float(prep_data.feature_df["Volatility_5"].iloc[-1])

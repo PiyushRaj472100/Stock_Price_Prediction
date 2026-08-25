@@ -37,6 +37,10 @@ def create_app() -> Flask:
     def healthz():
         return jsonify({"status": "ok"}), 200
 
+    @app.route("/favicon.ico")
+    def favicon():
+        return "", 204   # No Content — silences the browser 404
+
     @app.route("/api/search", methods=["GET"])
     def search():
         query = request.args.get("q", "").strip()

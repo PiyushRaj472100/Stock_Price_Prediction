@@ -52,7 +52,7 @@ class TimeSeriesTransformer(nn.Module):
 class TransformerForecaster:
     """Compact Time-Series Transformer Forecasting Model."""
 
-    def __init__(self, input_dim: int, d_model: int = 32, epochs: int = 35, lr: float = 0.01):
+    def __init__(self, input_dim: int, d_model: int = 32, epochs: int = 20, lr: float = 0.01):
         self.input_dim = input_dim
         self.epochs = epochs
         self.lr = lr
@@ -70,12 +70,17 @@ class TransformerForecaster:
         X_t = torch.tensor(X_train, dtype=torch.float32)
         y_t = torch.tensor(y_train, dtype=torch.float32)
 
+        prev_loss = float('inf')
         for _ in range(self.epochs):
             optimizer.zero_grad()
             preds = self.model(X_t)
             loss = criterion(preds, y_t)
             loss.backward()
             optimizer.step()
+            # Early stopping: exit if improvement is negligible
+            if abs(prev_loss - loss.item()) < 1e-6:
+                break
+            prev_loss = loss.item()
 
         self.is_trained = True
 
