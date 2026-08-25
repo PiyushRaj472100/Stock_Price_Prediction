@@ -33,6 +33,10 @@ def create_app() -> Flask:
     def index():
         return render_template("index.html")
 
+    @app.route("/healthz")
+    def healthz():
+        return jsonify({"status": "ok"}), 200
+
     @app.route("/api/search", methods=["GET"])
     def search():
         query = request.args.get("q", "").strip()
