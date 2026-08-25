@@ -410,14 +410,35 @@ async function runForecast() {
     }
 }
 
-// ── Quote-only refresh ─────────────────────────────────────────────────────
+// ── Quote-only refresh ─────────────────────────────────────────────
+function setQuoteLoading(loading) {
+    const priceEl = ui.quotePrice;
+    const changeEl = ui.quoteChange;
+    const pctEl    = ui.quoteChangePct;
+    if (loading) {
+        priceEl.style.opacity  = '0.35';
+        changeEl.style.opacity = '0.35';
+        pctEl.style.opacity    = '0.35';
+        ui.refreshQuoteBtn.style.opacity = '0.5';
+        ui.refreshQuoteBtn.disabled = true;
+    } else {
+        priceEl.style.opacity  = '1';
+        changeEl.style.opacity = '1';
+        pctEl.style.opacity    = '1';
+        ui.refreshQuoteBtn.style.opacity = '1';
+        ui.refreshQuoteBtn.disabled = false;
+    }
+}
+
 async function fetchQuote() {
+    setQuoteLoading(true);
     try {
         const res = await fetch('/api/quote?symbol=' + encodeURIComponent(state.currentSymbol));
         if (!res.ok) return;
         const data = await res.json();
         if (data.success) updateQuoteUI(data.quote);
     } catch (_) {}
+    finally { setQuoteLoading(false); }
 }
 
 // ── Auto-Refresh ───────────────────────────────────────────────────────────

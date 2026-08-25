@@ -1,4 +1,5 @@
 import os
+import time
 import datetime as dt
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -6,6 +7,10 @@ from typing import List, Dict, Any, Optional
 import pandas as pd
 import requests
 import yfinance as yf
+
+# ── Simple TTL in-memory quote cache ──────────────────────────────────────
+_quote_cache: Dict[str, Any] = {}   # symbol -> {"data": QuoteData, "ts": float}
+_QUOTE_TTL = 15                      # seconds
 
 
 @dataclass
@@ -125,63 +130,85 @@ class YahooFinanceProvider(BaseMarketProvider):
 
     def get_latest_quote(self, symbol: str) -> QuoteData:
         symbol = symbol.strip().upper()
-        ticker = yf.Ticker(symbol)
-        
-        info = {}
-        try:
-            info = ticker.info or {}
-        except Exception:
-            info = {}
 
-        # Fallback price fetch from fast_info or recent 1d history
+        # ── Cache check ──────────────────────────────────────────────────
+        cached = _quote_cache.get(symbol)
+        if cached and (time.time() - cached["ts"]) < _QUOTE_TTL:
+            return cached["data"]
+
+        ticker = yf.Ticker(symbol)
+
+        # ── Fast path: use fast_info (single lightweight request) ────────
         current_price = None
         previous_close = None
-        currency = info.get("currency", "USD")
-        company_name = info.get("shortName") or info.get("longName") or symbol
-        exchange = info.get("exchange", "Unknown")
-        market_state = info.get("marketState", "CLOSED").upper()
+        currency = "USD"
+        company_name = symbol
+        exchange = "Unknown"
+        market_state = "CLOSED"
 
-        if "regularMarketPrice" in info and info["regularMarketPrice"] is not None:
-            current_price = float(info["regularMarketPrice"])
-            previous_close = float(info.get("regularMarketPreviousClose") or info.get("previousClose") or current_price)
-        elif hasattr(ticker, "fast_info") and ticker.fast_info is not None:
-            try:
-                fast = ticker.fast_info
-                current_price = float(fast.last_price)
-                previous_close = float(fast.previous_close or current_price)
-                currency = fast.currency or currency
-                exchange = fast.exchange or exchange
-            except Exception:
-                pass
+        try:
+            fast = ticker.fast_info
+            current_price = float(fast.last_price)
+            previous_close = float(fast.previous_close or current_price)
+            currency = getattr(fast, "currency", None) or "USD"
+            exchange = getattr(fast, "exchange", None) or "Unknown"
+        except Exception:
+            pass
 
-        if current_price is None or previous_close is None:
-            # Fetch 5-day 1-minute or daily data to find latest price
+        # ── Fallback: recent history if fast_info failed ─────────────────
+        if current_price is None:
             hist = ticker.history(period="5d")
             if hist.empty:
                 raise ValueError(f"Unable to retrieve market price for symbol '{symbol}'. Verify the ticker name.")
             current_price = float(hist["Close"].iloc[-1])
-            if len(hist) > 1:
-                previous_close = float(hist["Close"].iloc[-2])
-            else:
-                previous_close = current_price
+            previous_close = float(hist["Close"].iloc[-2]) if len(hist) > 1 else current_price
+
+        # ── Company name: cheap metadata only ────────────────────────────
+        try:
+            meta = ticker.fast_info
+            # fast_info doesn't have company name; fetch only basic_info which is lighter
+            basic = getattr(ticker, "basic_info", None)
+            if basic:
+                company_name = getattr(basic, "name", None) or symbol
+        except Exception:
+            company_name = symbol
+
+        # Try getting company name from a minimal info subset if still unknown
+        if company_name == symbol:
+            try:
+                # Use requests directly to avoid full ticker.info overhead
+                url = (
+                    f"https://query2.finance.yahoo.com/v8/finance/chart/{symbol}"
+                    f"?interval=1d&range=1d"
+                )
+                headers = {"User-Agent": "Mozilla/5.0"}
+                r = requests.get(url, headers=headers, timeout=3)
+                if r.status_code == 200:
+                    meta_json = r.json()
+                    company_name = (
+                        meta_json.get("chart", {})
+                        .get("result", [{}])[0]
+                        .get("meta", {})
+                        .get("shortName", symbol)
+                    ) or symbol
+                    market_state = (
+                        meta_json.get("chart", {})
+                        .get("result", [{}])[0]
+                        .get("meta", {})
+                        .get("marketState", "CLOSED")
+                    ).upper()
+            except Exception:
+                pass
 
         change = round(current_price - previous_close, 2)
         change_pct = round((change / previous_close) * 100, 2) if previous_close else 0.0
 
-        # Market Open/Closed and Data labeling
         is_open = market_state in ("REGULAR", "OPEN")
-        if is_open:
-            market_status = "Market Open"
-            data_label = "Real-time"
-        else:
-            market_status = "Market Closed"
-            data_label = "Latest available price"
+        market_status = "Market Open" if is_open else "Market Closed"
+        data_label = "Real-time" if is_open else "Latest available price"
 
         now = dt.datetime.now()
-        timestamp_iso = now.isoformat()
-        last_updated = now.strftime("%I:%M:%S %p")
-
-        return QuoteData(
+        result = QuoteData(
             symbol=symbol,
             company_name=company_name,
             price=round(current_price, 2),
@@ -190,11 +217,15 @@ class YahooFinanceProvider(BaseMarketProvider):
             currency=currency,
             market_status=market_status,
             is_market_open=is_open,
-            last_updated=last_updated,
-            timestamp_iso=timestamp_iso,
+            last_updated=now.strftime("%I:%M:%S %p"),
+            timestamp_iso=now.isoformat(),
             data_label=data_label,
             exchange=exchange
         )
+
+        # Store in cache
+        _quote_cache[symbol] = {"data": result, "ts": time.time()}
+        return result
 
     def get_historical_data(self, symbol: str, period: str = "5M") -> HistoricalData:
         symbol = symbol.strip().upper()
