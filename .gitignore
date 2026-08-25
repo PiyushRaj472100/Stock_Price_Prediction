@@ -13,7 +13,7 @@ env/
 .env/
 
 # Environment secrets (keep .env.example, ignore actual .env)
-.env
+backend/.env
 
 # Distribution / packaging
 build/
@@ -31,3 +31,9 @@ Thumbs.db
 
 # Project-specific
 *.log
+
+# Frontend (future Node.js)
+frontend/node_modules/
+frontend/.next/
+frontend/dist/
+frontend/build/

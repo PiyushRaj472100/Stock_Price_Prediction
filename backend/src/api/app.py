@@ -7,18 +7,21 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Add root directory to sys.path
-root_dir = Path(__file__).resolve().parent.parent.parent
-if str(root_dir) not in sys.path:
-    sys.path.insert(0, str(root_dir))
+# backend/ is the root for Python imports; frontend/ is a sibling of backend/
+backend_dir = Path(__file__).resolve().parent.parent.parent   # .../backend
+root_dir = backend_dir  # keep root_dir alias for sys.path
+frontend_dir = backend_dir.parent / "frontend"                # .../frontend
+
+if str(backend_dir) not in sys.path:
+    sys.path.insert(0, str(backend_dir))
 
 from src.data.market_provider import get_market_provider
 from src.prediction.predictor import StockPredictor
 
 
 def create_app() -> Flask:
-    template_dir = os.path.join(root_dir, "templates")
-    static_dir = os.path.join(root_dir, "static")
+    template_dir = str(frontend_dir / "templates")
+    static_dir   = str(frontend_dir / "static")
 
     app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "stock-forecasting-secret-key")
